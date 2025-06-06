@@ -17,7 +17,6 @@ function AssignUserForm({ machineId }) {
       headers: { Authorization: `Bearer ${token}` }
     })
     .then(res => {
-      console.log("Fetched users:", res.data.users);
       setUsers(res.data.users || []);
     })
     .catch(err => {

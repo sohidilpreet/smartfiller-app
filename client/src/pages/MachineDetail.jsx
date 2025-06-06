@@ -70,7 +70,45 @@ function MachineDetail() {
         />
         <button type="submit">Log Run</button>
       </form>
+      
+      <hr />
+      <h3>Uploaded Files</h3>
+        {machine.files && machine.files.length > 0 ? (
+        <ul>
+            {machine.files.map(file => (
+            <li key={file.id}>
+                <a href={`http://localhost:5050/uploads/${file.filename}`} target="_blank" rel="noreferrer">
+                {file.originalname}
+                </a>{' '}
+                — uploaded by <strong>{file.uploaded_by_name}</strong> at {new Date(file.uploaded_at).toLocaleString()}
+            </li>
+            ))}
+        </ul>
+        ) : (
+        <p>No files uploaded.</p>
+        )}
+        <h3>Upload File</h3>
+        <form
+        onSubmit={async (e) => {
+            e.preventDefault();
+            const formData = new FormData();
+            formData.append('file', e.target.file.files[0]);
 
+            await axios.post(`http://localhost:5050/api/machines/${id}/upload`, formData, {
+            headers: {
+                Authorization: `Bearer ${token}`,
+                'Content-Type': 'multipart/form-data'
+            }
+            });
+
+            alert('Uploaded!');
+            window.location.reload();
+        }}
+        >
+        <input type="file" name="file" required />
+        <button type="submit">Upload</button>
+        </form>
+        
       <hr />
 
       {/* ✅ Show assign form only for admins */}

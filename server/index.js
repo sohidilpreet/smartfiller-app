@@ -4,7 +4,7 @@ import dotenv from 'dotenv';
 import authRoutes from './routes/auth.js';
 import machineRoutes from './routes/machines.js';
 import userRoutes from './routes/users.js';
-import machineFileRoutes from './routes/machineFiles.js';
+// import machineFileRoutes from './routes/machineFiles.js';
 import uploadRoute from './routes/upload.js';
 
 dotenv.config();
@@ -31,7 +31,8 @@ app.use('/api/machines', machineRoutes);
 
 app.use('/api/users', userRoutes);
 
-app.use('/api/files', machineFileRoutes);
+// app.use('/api/files', machineFileRoutes);
+
 app.use('/uploads', express.static('uploads'));
 
 app.use('/api/upload', uploadRoute);
