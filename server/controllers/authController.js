@@ -8,41 +8,41 @@ dotenv.config();                          // Initialize dotenv
 // 📝 REGISTER NEW USER
 // ===========================================
 export const registerUser = async (req, res) => {
-  const { name, email, password } = req.body;
+  const { name, email, password, company_id, role } = req.body;
+
+  if (!company_id || !role) {
+    return res.status(400).json({ message: 'Company ID and role are required' });
+  }
 
   try {
-    // 1. Check if the user already exists by email
     const existing = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
-
     if (existing.rows.length > 0) {
       return res.status(400).json({ message: 'User already exists' });
     }
 
-    // 2. Hash the password using bcrypt (10 salt rounds)
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // 3. Insert new user into database
     const result = await pool.query(
-      'INSERT INTO users (name, email, password) VALUES ($1, $2, $3) RETURNING *',
-      [name, email, hashedPassword]
+      'INSERT INTO users (name, email, password, company_id, role) VALUES ($1, $2, $3, $4, $5) RETURNING *',
+      [name, email, hashedPassword, company_id, role]
     );
 
     const user = result.rows[0];
 
-    // 4. Generate JWT token using secret from .env
     const token = jwt.sign(
-      { id: user.id, email: user.email },
+      { id: user.id, company_id: user.company_id, role: user.role },
       process.env.JWT_SECRET,
-      { expiresIn: '7d' }
+      { expiresIn: '1d' }
     );
 
-    // 5. Send back token and basic user info
     res.status(201).json({
       token,
       user: {
         id: user.id,
         name: user.name,
-        email: user.email
+        email: user.email,
+        role: user.role,
+        company_id: user.company_id
       }
     });
 
@@ -56,56 +56,69 @@ export const registerUser = async (req, res) => {
 // 🔐 LOGIN EXISTING USER
 // ===========================================
 export const loginUser = async (req, res) => {
-  const { email, password } = req.body;
+  const { email, password, company_id } = req.body;
+
+  if (!email || !password || !company_id) {
+    return res.status(400).json({ message: 'Missing credentials' });
+  }
 
   try {
-    // 1. Look for user in the DB
-    const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
-    const user = result.rows[0];
-
-    if (!user) {
-      return res.status(400).json({ message: 'Invalid credentials' });
-    }
-
-    // 2. Compare plain password to hashed one
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
-      return res.status(400).json({ message: 'Invalid credentials' });
-    }
-
-    // 3. Generate JWT token
-    const token = jwt.sign(
-      { id: user.id, email: user.email },
-      process.env.JWT_SECRET,
-      { expiresIn: '7d' }
+    const client = await pool.connect();
+    const userRes = await client.query(
+      `SELECT * FROM users WHERE email = $1 AND company_id = $2`,
+      [email, company_id] // 🧠 ensure case-insensitive matching
     );
 
-    // 4. Send token and user info
+    if (userRes.rows.length === 0) {
+      return res.status(401).json({ message: 'Invalid credentials (user not found)' });
+    }
+
+    const user = userRes.rows[0];
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return res.status(401).json({ message: 'Invalid credentials (password)' });
+    }
+
+    const token = jwt.sign(
+      { id: user.id, company_id: user.company_id, role: user.role },
+      process.env.JWT_SECRET,
+      { expiresIn: '1d' }
+    );
+
     res.json({
       token,
       user: {
         id: user.id,
         name: user.name,
-        email: user.email
+        email: user.email,
+        role: user.role,
+        company_id: user.company_id
       }
     });
-
   } catch (err) {
-    console.error('Login Error:', err.message);
+    console.error(err);
     res.status(500).json({ message: 'Server error during login' });
   }
 };
 
-
 export const getMe = async (req, res) => {
+  const client = await pool.connect();
   try {
-    const user = await pool.query('SELECT id, name, email FROM users WHERE id = $1', [req.user.id]);
-
-    if (user.rows.length === 0) return res.status(404).json({ message: 'User not found' });
-
-    res.json(user.rows[0]); // ✅ not wrapped in { user: ... }
-  } catch (error) {
-    console.error('GetMe error:', error);
-    res.status(500).json({ message: 'Server error' });
+    const { id } = req.user;
+    const result = await client.query(
+      `SELECT u.id, u.name, u.email, u.role, c.id AS company_id, c.name AS company_name
+       FROM users u
+       JOIN companies c ON u.company_id = c.id
+       WHERE u.id = $1`,
+      [id]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    res.json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ message: 'Error fetching user' });
+  } finally {
+    client.release();
   }
 };
