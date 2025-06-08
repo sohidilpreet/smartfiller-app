@@ -1,0 +1,67 @@
+.dashboard-container {
+    max-width: 1000px;
+    margin: auto;
+    padding: 1rem;
+    font-family: Arial, sans-serif;
+  }
+  .dashboard-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .dashboard-header h1 {
+    margin: 0;
+    font-size: 2rem;
+  }
+  .company {
+    color: #666;
+  }
+  .header-actions .btn-primary,
+  .header-actions .btn-secondary {
+    margin-left: 0.5rem;
+    padding: 0.5rem 1rem;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  .btn-primary {
+    background-color: #4A90E2;
+    color: #fff;
+  }
+  .btn-secondary {
+    background-color: #ccc;
+    color: #333;
+  }
+  .machine-list-section {
+    margin-top: 2rem;
+  }
+  .machine-grid {
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  }
+  .machine-card {
+    display: block;
+    padding: 1rem;
+    background: #fff;
+    border: 1px solid #eee;
+    border-radius: 6px;
+    text-decoration: none;
+    color: inherit;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    transition: box-shadow 0.2s ease;
+  }
+  .machine-card:hover {
+    box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+  }
+  .location {
+    display: block;
+    margin-top: 0.5rem;
+    color: #999;
+  }
+  .loading, .not-logged-in, .no-machines {
+    text-align: center;
+    margin-top: 2rem;
+    color: #666;
+  }
+  
