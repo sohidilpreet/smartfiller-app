@@ -83,10 +83,17 @@ router.get('/', verifyToken, async (req, res) => {
 
   try {
     const result = await pool.query(
-      `SELECT id, name, email, role 
+      `SELECT id, name, email, role, created_at
        FROM users 
-       WHERE company_id = $1 AND role != 'admin'
-       ORDER BY name`,
+       WHERE company_id = $1
+       ORDER BY 
+         CASE role 
+           WHEN 'admin' THEN 1 
+           WHEN 'controller' THEN 2 
+           WHEN 'viewer' THEN 3 
+           ELSE 4 
+         END,
+         created_at ASC`,
       [company_id]
     );
     res.json({ users: result.rows });

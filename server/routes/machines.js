@@ -311,7 +311,7 @@ router.get('/:id/stats/runs', verifyToken, async (req, res) => {
   }
 });
 
-// ✅ Update machine status
+// Update machine status
 router.put('/:id/status', verifyToken, async (req, res) => {
   const { id } = req.params;
   const { status } = req.body;
@@ -327,9 +327,24 @@ router.put('/:id/status', verifyToken, async (req, res) => {
       return res.status(403).json({ message: 'Only admins can update status' });
     }
 
+    // ✅ 1. Update machine status
     await pool.query(`UPDATE machines SET status = $1 WHERE id = $2`, [status, id]);
 
-    res.json({ message: 'Status updated' });
+    // ✅ 2. Log it as a machine run
+    let description = '';
+    if (status === 'Running') description = '🟢 Machine started';
+    else if (status === 'Idle') description = '⚪ Machine stopped';
+    else if (status === 'Error') description = '🔴 Machine error';
+    else description = `Status changed to ${status}`;
+
+    await pool.query(
+      `INSERT INTO machine_runs (machine_id, user_id, description)
+       VALUES ($1, $2, $3)`,
+      [id, userId, description]
+    );
+
+    res.json({ message: 'Status updated and run logged' });
+
   } catch (err) {
     console.error('Update status error:', err.message);
     res.status(500).json({ message: 'Failed to update status' });

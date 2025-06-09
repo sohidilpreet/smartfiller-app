@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import Header from '../components/Header';
 import AssignUserForm from '../components/AssignUserForm';
 import { getMe } from '../api/auth';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
@@ -11,19 +12,20 @@ function MachineDetail() {
   const [user, setUser] = useState(null);
   const [runForm, setRunForm] = useState({ description: '', operatorName: '' });
   const [error, setError] = useState('');
+  const navigate = useNavigate();
 
   const token = localStorage.getItem('token');
 
   useEffect(() => {
-    // Fetch logged-in user
+    if (!token) return navigate('/login');
+
     getMe(token)
       .then(res => setUser(res.data))
-      .catch(err => {
-        console.error('User fetch failed:', err.message);
-        setError('Could not fetch user.');
+      .catch(() => {
+        localStorage.removeItem('token');
+        navigate('/login');
       });
 
-    // Fetch machine details
     Promise.all([
       axios.get(`http://localhost:5050/api/machines/${id}`, {
         headers: { Authorization: `Bearer ${token}` }
@@ -35,8 +37,13 @@ function MachineDetail() {
       .then(([machineRes, statsRes]) => {
         setMachine({ ...machineRes.data, stats: statsRes.data });
       })
-      .catch(() => setError('Machine not found or access denied'));    
-  }, [id]);
+      .catch(() => setError('Machine not found or access denied.'));
+  }, [id, navigate, token]);
+
+  const logout = () => {
+    localStorage.removeItem('token');
+    navigate(0);
+  };
 
   const handleRunSubmit = async (e) => {
     e.preventDefault();
@@ -51,8 +58,7 @@ function MachineDetail() {
   };
 
   const handleDeleteFile = async (fileId, originalname) => {
-    const confirmed = window.confirm(`Delete file "${originalname}"?`);
-    if (!confirmed) return;
+    if (!window.confirm(`Delete file "${originalname}"?`)) return;
 
     try {
       await axios.delete(`http://localhost:5050/api/machines/${id}/files/${fileId}`, {
@@ -61,109 +67,126 @@ function MachineDetail() {
       alert('File deleted');
       window.location.reload();
     } catch (err) {
-      console.error('Delete error:', err);
       alert('Failed to delete file');
     }
   };
-
+  
   const updateStatus = async (newStatus) => {
     try {
       await axios.put(`http://localhost:5050/api/machines/${id}/status`, { status: newStatus }, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      alert(`Status updated to ${newStatus}`);
-      window.location.reload();
+      window.location.reload(); // Refresh without alert
     } catch (err) {
-      console.error('Status update failed:', err);
-      alert('Failed to update status');
+      console.error(err.response?.data || err.message);
+      setError('Failed to update status');
     }
-  };
+  };  
 
-  if (error) return <p>{error}</p>;
-  if (!machine || !user) return <p>Loading...</p>;
+  if (error) {
+    return <div className="container py-5 text-danger">{error}</div>;
+  }
+
+  if (!machine || !user) {
+    return (
+      <div className="min-h-screen d-flex align-items-center justify-content-center text-white">
+        Loading Machine Details...
+      </div>
+    );
+  }
 
   return (
-    <div>
-      <h2>{machine.name}</h2>
-      <p>{machine.description}</p>
-      <p><strong>Location:</strong> {machine.location}</p>
-      <p><strong>Created By:</strong> {machine.created_by_name}</p>
-      <p><strong>Status:</strong> <span style={{ fontWeight: 'bold', color: 'darkgreen' }}>{machine.status}</span></p>
-      <div style={{ marginBottom: '1rem' }}>
-        <button onClick={() => updateStatus('Running')}>Simulate Running</button>{' '}
-        <button onClick={() => updateStatus('Idle')}>Simulate Idle</button>{' '}
-        <button onClick={() => updateStatus('Error')}>Simulate Error</button>
-      </div>
+    <div className="container py-4">
+      <Header user={user} onLogout={logout} />
 
-      <hr />
-      <h3>📈 Run Activity (Last 30 Days)</h3>
-      {machine.stats && machine.stats.history.length > 0 ? (
-        <>
-          <ResponsiveContainer width="40%" height={300}>
-            <LineChart data={machine.stats.history}>
-              <CartesianGrid stroke="#eee" strokeDasharray="5 5" />
-              <XAxis dataKey="date" />
-              <YAxis allowDecimals={false} />
-              <Tooltip />
-              <Line type="monotone" dataKey="total_runs" stroke="#8884d8" />
-            </LineChart>
-          </ResponsiveContainer>
+      <section className="card d-flex flex-row bg-white border-light rounded-4 shadow p-4 mb-4">
+        <div className='col-lg-6'>
+          <h2 className="h4 mb-3">{machine.name}</h2>
+          <p className="text-muted mb-1">{machine.description}</p>
+          <p><strong>📍 Location:</strong> {machine.location}</p>
+          <p><strong>👤 Created By:</strong> {machine.created_by_name}</p>
+          <p><strong>⚙️ Status:</strong> <span className="fw-bold text-success">{machine.status}</span></p>
+        </div>
+        <div className="col-lg-6 align-items-center d-flex gap-2 mt-3">
+          <button onClick={() => updateStatus('Running')} className="btn btn-outline-success btn-sm" style={{height: 'fit-content'}}>▶️ Start Machine</button>
+          <button onClick={() => updateStatus('Idle')} className="btn btn-outline-secondary btn-sm" style={{height: 'fit-content'}}>⏹️ Stop Machine</button>
+          <button onClick={() => updateStatus('Error')} className="btn btn-outline-danger btn-sm" style={{height: 'fit-content'}}>⚠️ Report Error</button>
+        </div>
+      </section>
 
-          <p><strong>Total Runs:</strong> {machine.stats.summary.total_runs}</p>
-          <p><strong>Last Run:</strong> {new Date(machine.stats.summary.last_run).toLocaleString()}</p>
-          <p><strong>Top Operator:</strong> {machine.stats.summary.top_operator || 'N/A'}</p>
-        </>
-      ) : (
-        <p>No activity in the last 30 days.</p>
-      )}
+      <section className="card bg-white border-light rounded-4 shadow p-4 mb-4">
+        <h4 className="mb-3">📈 Run Activity (Last 30 Days)</h4>
+        {machine.stats?.history.length > 0 ? (
+          <>
+            <ResponsiveContainer width="100%" height={300}>
+              <LineChart data={machine.stats.history}>
+                <CartesianGrid stroke="#ccc" strokeDasharray="5 5" />
+                <XAxis dataKey="date" />
+                <YAxis allowDecimals={false} />
+                <Tooltip />
+                <Line type="monotone" dataKey="total_runs" stroke="#7c3aed" />
+              </LineChart>
+            </ResponsiveContainer>
 
-      <hr />
-      <h3>Log a Machine Run</h3>
-      <form onSubmit={handleRunSubmit}>
-        <input
-          type="text"
-          name="description"
-          placeholder="What was done..."
-          onChange={(e) => setRunForm(prev => ({ ...prev, description: e.target.value }))}
-          required
-        />
-        <input
-          type="text"
-          name="operatorName"
-          placeholder="Operator name (optional)"
-          onChange={(e) => setRunForm(prev => ({ ...prev, operatorName: e.target.value }))}
-        />
-        <button type="submit">Log Run</button>
-      </form>
+            <ul className="mt-3">
+              <li><strong>Total Runs:</strong> {machine.stats.summary.total_runs}</li>
+              <li><strong>Last Run:</strong> {new Date(machine.stats.summary.last_run).toLocaleString()}</li>
+              <li><strong>Top Operator:</strong> {machine.stats.summary.top_operator || 'N/A'}</li>
+            </ul>
+          </>
+        ) : <p className="text-muted">No activity in the last 30 days.</p>}
+      </section>
 
-      <hr />
-      <h3>Uploaded Files</h3>
-      {machine.files && machine.files.length > 0 ? (
-        <ul>
-          {machine.files.map(file => (
-            <li key={file.id}>
-              <a href={`http://localhost:5050/uploads/${file.filename}`} target="_blank" rel="noreferrer">
-                {file.originalname}
-              </a>{' '}
-              — uploaded by <strong>{file.uploaded_by_name}</strong> at {new Date(file.uploaded_at).toLocaleString()}
-              {user.role === 'admin' && (
-                <button
-                  onClick={() => handleDeleteFile(file.id, file.originalname)}
-                  style={{ marginLeft: '10px', color: 'red' }}
-                >
-                  ❌ Delete
-                </button>
-              )}
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p>No files uploaded.</p>
-      )}
+      <section className="card bg-white border-light rounded-4 shadow p-4 mb-4">
+        <h4 className="mb-3">📝 Log a Machine Run</h4>
+        <form onSubmit={handleRunSubmit} className="d-flex flex-column gap-3">
+          <input
+            type="text"
+            name="description"
+            placeholder="What was done..."
+            value={runForm.description}
+            onChange={(e) => setRunForm(prev => ({ ...prev, description: e.target.value }))}
+            className="form-control"
+            required
+          />
+          <input
+            type="text"
+            name="operatorName"
+            placeholder="Operator name (optional)"
+            value={runForm.operatorName}
+            onChange={(e) => setRunForm(prev => ({ ...prev, operatorName: e.target.value }))}
+            className="form-control"
+          />
+          <button type="submit" className="btn btn-primary">Submit</button>
+        </form>
+      </section>
+
+      <section className="card bg-white border-light rounded-4 shadow p-4 mb-4">
+        <h4 className="mb-3">📂 Uploaded Files</h4>
+        {machine.files?.length > 0 ? (
+          <ul className="list-group">
+            {machine.files.map(file => (
+              <li key={file.id} className="list-group-item d-flex justify-content-between align-items-center">
+                <div>
+                  <a href={`http://localhost:5050/uploads/${file.filename}`} target="_blank" rel="noreferrer">
+                    {file.originalname}
+                  </a>{' '}
+                  <small className="text-muted">by {file.uploaded_by_name} at {new Date(file.uploaded_at).toLocaleString()}</small>
+                </div>
+                {user.role === 'admin' && (
+                  <button className="btn btn-sm btn-outline-danger" onClick={() => handleDeleteFile(file.id, file.originalname)}>
+                    ❌
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+        ) : <p className="text-muted">No files uploaded.</p>}
+      </section>
 
       {(user.role === 'admin' || user.role === 'controller') && (
-        <>
-          <h3>Upload File</h3>
+        <section className="card bg-white border-light rounded-4 shadow p-4 mb-4">
+          <h4 className="mb-3">📤 Upload File</h4>
           <form
             onSubmit={async (e) => {
               e.preventDefault();
@@ -177,38 +200,40 @@ function MachineDetail() {
                     'Content-Type': 'multipart/form-data'
                   }
                 });
-                alert('Uploaded!');
+                alert('File uploaded!');
                 window.location.reload();
-              } catch (err) {
-                console.error('Upload failed:', err);
+              } catch {
                 alert('Upload failed');
               }
             }}
           >
-            <input type="file" name="file" required />
-            <button type="submit">Upload</button>
+            <input type="file" name="file" required className="form-control mb-2" />
+            <button type="submit" className="btn btn-success">Upload</button>
           </form>
-        </>
+        </section>
       )}
 
-      <hr />
-      {user && user.role === 'admin' && (
-        <AssignUserForm machineId={id} />
+      {user.role === 'admin' && (
+        <section className="card bg-white border-light rounded-4 shadow p-4 mb-4">
+          <h4 className="mb-3">👥 Assign Users to Machine</h4>
+          <AssignUserForm machineId={id} />
+        </section>
       )}
 
-      <hr />
-      <h3>Run History</h3>
-      {machine.runs.length === 0 ? (
-        <p>No runs logged yet.</p>
-      ) : (
-        <ul>
-          {machine.runs.map(run => (
-            <li key={run.id}>
-              {new Date(run.run_time).toLocaleString()} – {run.description} by <strong>{run.user_name || run.operator_name}</strong>
-            </li>
-          ))}
-        </ul>
-      )}
+      <section className="card bg-white border-light rounded-4 shadow p-4 mb-4">
+        <h4 className="mb-3">📜 Run History</h4>
+        {machine.runs.length === 0 ? (
+          <p className="text-muted">No runs logged yet.</p>
+        ) : (
+          <ul className="list-group">
+            {machine.runs.map(run => (
+              <li key={run.id} className="list-group-item">
+                <strong>{new Date(run.run_time).toLocaleString()}</strong> – {run.description} by <strong>{run.user_name || run.operator_name}</strong>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
     </div>
   );
 }

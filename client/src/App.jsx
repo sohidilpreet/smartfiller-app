@@ -11,13 +11,12 @@ function App() {
 
   return (
     <Routes>
-      <Route path="/" element={<Navigate to={token ? "/dashboard" : "/login"} />} />
-      <Route path="/register" element={token ? <Navigate to="/dashboard" /> : <Register />} />
-      <Route path="/login" element={token ? <Navigate to="/dashboard" /> : <Login />} />
-      <Route path="/dashboard" element={token ? <Dashboard /> : <Navigate to="/login" />} />
-      <Route path="/machines/create" element={<CreateMachine />} />
-      <Route path="/machines/:id" element={<MachineDetail />} />
-      <Route path="/create-user" element={<CreateUser />} />
+      <Route path="/" element={token ? <Dashboard /> : <Navigate to="/login" />} />
+      <Route path="/login" element={token ? <Navigate to="/" /> : <Login />} />
+      <Route path="/register" element={token ? <Navigate to="/" /> : <Register />} />
+      <Route path="/machines/create" element={token ? <CreateMachine /> : <Navigate to="/login" />} />
+      <Route path="/machines/:id" element={token ? <MachineDetail /> : <Navigate to="/login" />} />
+      <Route path="/create-user" element={token ? <CreateUser /> : <Navigate to="/login" />} />
     </Routes>
   );
 }
