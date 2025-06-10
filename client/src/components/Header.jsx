@@ -1,19 +1,16 @@
 import { Link, useLocation } from 'react-router-dom';
 
-function Header({ user, logout }) {
+function Header({ user, onLogout }) {
   const location = useLocation();
-  if (!user) return null;
 
-  const isOnDashboard = location.pathname === '/' || location.pathname === '/dashboard';
-  const isOnCreateMachine = location.pathname === '/machines/create';
-  const isOnCreateUser = location.pathname === '/create-user';
+  if (!user) return null;
 
   return (
     <div className="header py-3">
+      {/* Main White Card Header */}
       <div className="bg-white rounded-4 shadow p-4 container mt-4">
         <div className="d-flex flex-column flex-lg-row justify-content-between align-items-start align-items-lg-center gap-3">
           
-          {/* Left: User Info */}
           <div className="d-flex align-items-center gap-3">
             <div className="rounded-circle d-flex align-items-center justify-content-center shadow"
               style={{
@@ -37,28 +34,22 @@ function Header({ user, logout }) {
             </div>
           </div>
 
-          {/* Right: Buttons */}
+          {/* Right: Action Buttons */}
           <div className="d-flex flex-wrap gap-2">
             <button 
-              onClick={logout}
+              onClick={onLogout}
               className="btn btn-outline-secondary"
             >
               🚪 Logout
             </button>
 
-            {!isOnDashboard && (
-              <Link to="/" className="btn btn-outline-dark">
-                🏠 Dashboard
-              </Link>
-            )}
-
-            {user.role === 'admin' && !isOnCreateUser && (
+            {user.role === 'admin' && location.pathname !== '/create-user' && (
               <Link to="/create-user" className="btn btn-success text-white">
                 👤 Add User
               </Link>
             )}
 
-            {!isOnCreateMachine && (
+            {location.pathname !== '/machines/create' && (
               <Link to="/machines/create" className="btn btn-primary text-white">
                 🏭 Add Machine
               </Link>
