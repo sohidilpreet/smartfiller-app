@@ -1,5 +1,5 @@
 # 🚀 SmartFiller+  
-**A cross-platform SaaS app for machine monitoring and user access control – inspired by Unifiller+.**
+**A cross-platform SaaS app for machine monitoring and user access control.**
 
 ![React](https://img.shields.io/badge/Frontend-React.js-blue?logo=react)
 ![React Native](https://img.shields.io/badge/Mobile-React%20Native-green?logo=react)
